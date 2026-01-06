@@ -177,8 +177,8 @@ billSelect.onchange = async () => {
         <tr>
           <th>Item</th>
           <th>Qty</th>
-          <th>Unit ?</th>
-          <th>Total ?</th>
+          <th>Unit ₹</th>
+          <th>Total ₹</th>
         </tr>
     `;
 
@@ -200,7 +200,7 @@ billSelect.onchange = async () => {
     html += "</table>";
 
     tableWrap.innerHTML = html;
-    grandTotal.innerText = "Grand Total: ? " + total.toFixed(2);
+    grandTotal.innerText = "Grand Total: ₹ " + total.toFixed(2);
 
   }catch(err){
     error.innerText = "Unable to fetch bill items";
@@ -210,3 +210,4 @@ billSelect.onchange = async () => {
 
 </body>
 </html>
+
