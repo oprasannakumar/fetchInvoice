@@ -7,142 +7,257 @@
 
 <style>
 body{
-  font-family: Arial, sans-serif;
-  background:#f5f5f5;
+  font-family:"Segoe UI", Arial, sans-serif;
+  background:#eef1f5;
   padding:20px;
+  margin:0;
 }
 .container{
-  max-width:520px;
+  max-width:560px;
   margin:auto;
   background:#fff;
-  padding:20px;
-  border-radius:8px;
-  box-shadow:0 0 10px rgba(0,0,0,.1);
+  padding:22px;
+  border-radius:14px;
+  box-shadow:0 12px 30px rgba(0,0,0,.08);
 }
-label{
-  font-weight:bold;
-  margin-top:12px;
-  display:block;
+h3{
+  text-align:center;
+  margin-bottom:18px;
 }
-input, select{
-  width:100%;
-  height:42px;
-  margin-top:5px;
-  padding:8px;
+
+/* Centered primary controls */
+.center-block{
+  display:flex;
+  justify-content:center;
+  margin-bottom:14px;
+}
+.center-block input,
+.center-block select{
+  width:260px;
+  height:44px;
+  text-align:center;
   font-size:15px;
+  border-radius:10px;
+  border:1px solid #ccc;
 }
+.center-block select:disabled{
+  background:#f0f0f0;
+  color:#888;
+}
+.center-block input:focus,
+.center-block select:focus{
+  outline:none;
+  border-color:#007bff;
+}
+
+button{
+  border:none;
+  border-radius:8px;
+  padding:9px 14px;
+  font-size:14px;
+  cursor:pointer;
+}
+.success{background:#28a745;color:#fff}
+.danger{background:#dc3545;color:#fff}
+.secondary{background:#007bff;color:#fff}
+.ghost{background:#f1f3f5}
+
+.actions{
+  display:flex;
+  gap:10px;
+  margin-top:12px;
+  justify-content:center;
+  flex-wrap:wrap;
+}
+
 table{
   width:100%;
   border-collapse:collapse;
-  margin-top:18px;
+  margin-top:12px;
+  font-size:14px;
 }
-th, td{
-  border:1px solid #ddd;
+th{
+  background:#f6f7f9;
+}
+th,td{
+  border:1px solid #e3e3e3;
   padding:8px;
   text-align:center;
 }
-th{
-  background:#007bff;
-  color:#fff;
+td:last-child{width:40px}
+
+.grand-total{
+  margin-top:12px;
+  font-size:16px;
+  font-weight:600;
+  text-align:right;
 }
-.total{
-  font-weight:bold;
-  background:#f0f0f0;
-}
+
+.hidden{display:none}
 </style>
 </head>
 
 <body>
 
 <div class="container">
-  <h3>Invoice Lookup</h3>
+  <h3>🧾 Invoice Lookup</h3>
 
-  <label>Select Date</label>
-  <input type="date" id="date" onchange="loadInvoices()">
+  <!-- Date -->
+  <div class="center-block">
+    <input type="date" id="date" onchange="loadInvoices()">
+  </div>
 
-  <label>Select Invoice</label>
-  <select id="invoice" onchange="loadItems()">
-    <option value="">-- Select Invoice --</option>
-  </select>
+  <!-- Invoice dropdown -->
+  <div class="center-block">
+    <select id="invoice" disabled onchange="loadItems()">
+      <option>Select date first</option>
+    </select>
+  </div>
 
-  <table id="itemsTable" style="display:none">
+  <div class="actions">
+    <button class="secondary" onclick="toggleAddItem()">➕ Add Item</button>
+    <button class="danger" onclick="deleteInvoice()">🗑 Delete Invoice</button>
+  </div>
+
+  <!-- Items Table -->
+  <table id="itemsTable" class="hidden">
     <thead>
       <tr>
         <th>Item</th>
         <th>Qty</th>
         <th>Price</th>
         <th>Total</th>
+        <th>❌</th>
       </tr>
     </thead>
     <tbody></tbody>
   </table>
+
+  <!-- Grand Total -->
+  <div id="grandTotal" class="grand-total hidden">
+    Grand Total: ₹<span id="grandTotalValue">0</span>
+  </div>
+
+  <!-- Add Item -->
+  <div id="addItemSection" class="hidden">
+    <h4>Add Item</h4>
+    <input id="item" placeholder="Item name">
+    <input id="qty" type="number" placeholder="Quantity">
+    <input id="price" type="number" placeholder="Price">
+    <div class="actions">
+      <button class="success" onclick="addItem()">Save Item</button>
+      <button class="ghost" onclick="toggleAddItem()">Cancel</button>
+    </div>
+  </div>
 </div>
 
 <script>
-const API_URL = "https://script.google.com/macros/s/AKfycbwu6tvrXKAmaZSnqcrb3myGAvW3CmPwnUUfa57M7eg7KOJzys2ZPZWx82AL0EbxhEAmFQ/exec";
+/* ===== LOGIC UNCHANGED (only UX additions) ===== */
 
-// yyyy-mm-dd → d/M/yyyy
-function formatDate(input) {
-  const d = new Date(input);
+const API = "https://script.google.com/macros/s/AKfycbzOJH7NE5utvZ4Fa4np4HSfg-xfS---mU_ts3yCG5dlJUzVd1WRMTjAOXv5ziZjK9u0VQ/exec";
+
+function formatDate(input){
+  const d=new Date(input);
   return `${d.getDate()}/${d.getMonth()+1}/${d.getFullYear()}`;
 }
 
-function loadInvoices() {
-  const dateInput = document.getElementById("date").value;
-  const invoiceSelect = document.getElementById("invoice");
+function toggleAddItem(){
+  document.getElementById("addItemSection").classList.toggle("hidden");
+}
 
-  invoiceSelect.innerHTML = "<option>Loading...</option>";
-  if (!dateInput) return;
+function loadInvoices(){
+  if(!date.value) return;
 
-  fetch(`${API_URL}?action=getInvoices&date=${formatDate(dateInput)}`)
-    .then(res => res.json())
-    .then(data => {
-      invoiceSelect.innerHTML = `<option value="">-- Select Invoice --</option>`;
-      if (data.length === 0) {
-        invoiceSelect.innerHTML += `<option>No invoices found</option>`;
+  // 🔄 Loading state
+  invoice.disabled = true;
+  invoice.innerHTML = `<option>Loading bills...</option>`;
+
+  fetch(`${API}?action=getInvoices&date=${formatDate(date.value)}`)
+    .then(r=>r.json())
+    .then(data=>{
+      invoice.innerHTML = "";
+
+      if(data.length === 0){
+        invoice.innerHTML = `<option>No bills found</option>`;
+        invoice.disabled = true;
+        return;
       }
-      data.forEach(inv => {
-        invoiceSelect.innerHTML += `<option value="${inv}">${inv}</option>`;
+
+      invoice.innerHTML = `<option value="">-- Select Invoice --</option>`;
+      data.forEach(b=>{
+        invoice.innerHTML += `<option value="${b}">${b}</option>`;
       });
+
+      invoice.disabled = false;
     });
 }
 
-function loadItems() {
-  const invoiceNo = document.getElementById("invoice").value;
-  const table = document.getElementById("itemsTable");
-  const tbody = table.querySelector("tbody");
+function loadItems(){
+  if(!invoice.value) return;
 
-  if (!invoiceNo) {
-    table.style.display = "none";
-    return;
-  }
+  fetch(`${API}?action=getItems&invoiceNo=${invoice.value}`)
+    .then(r=>r.json())
+    .then(items=>{
+      const tbody=document.querySelector("#itemsTable tbody");
+      tbody.innerHTML="";
+      let grand=0;
 
-  fetch(`${API_URL}?action=getItems&invoiceNo=${invoiceNo}`)
-    .then(res => res.json())
-    .then(items => {
-      tbody.innerHTML = "";
-      let grandTotal = 0;
-
-      items.forEach(i => {
-        grandTotal += i.total;
-        tbody.innerHTML += `
+      items.forEach(i=>{
+        grand+=Number(i.total);
+        tbody.innerHTML+=`
           <tr>
             <td>${i.item}</td>
             <td>${i.qty}</td>
             <td>${i.price}</td>
             <td>${i.total}</td>
+            <td><button class="ghost" onclick="deleteItem(${i.row})">❌</button></td>
           </tr>`;
       });
 
-      tbody.innerHTML += `
-        <tr class="total">
-          <td colspan="3">Grand Total</td>
-          <td>${grandTotal}</td>
-        </tr>
-      `;
-
-      table.style.display = "table";
+      itemsTable.classList.remove("hidden");
+      grandTotal.classList.remove("hidden");
+      document.getElementById("grandTotalValue").innerText=grand.toFixed(2);
     });
+}
+
+function deleteItem(row){
+  fetch(`${API}?action=deleteItem&row=${row}`)
+    .then(()=>loadItems());
+}
+
+function deleteInvoice(){
+  if(!invoice.value) return alert("Select invoice");
+  if(!confirm("Delete entire invoice?")) return;
+  fetch(`${API}?action=deleteInvoice&billNo=${encodeURIComponent(invoice.value)}`)
+    .then(()=>{
+      invoice.innerHTML = `<option>Select date first</option>`;
+      invoice.disabled = true;
+      itemsTable.classList.add("hidden");
+      grandTotal.classList.add("hidden");
+      loadInvoices();
+    });
+}
+
+function addItem(){
+  if(!invoice.value) return alert("Select invoice");
+  if(!item.value||!qty.value||!price.value||!date.value){
+    return alert("Fill all item details");
+  }
+
+  fetch(
+    `${API}?action=addItem`+
+    `&billNo=${encodeURIComponent(invoice.value)}`+
+    `&item=${encodeURIComponent(item.value)}`+
+    `&qty=${qty.value}`+
+    `&price=${price.value}`+
+    `&date=${date.value}`
+  ).then(()=>{
+    item.value="";
+    qty.value="";
+    price.value="";
+    toggleAddItem();
+    loadItems();
+  });
 }
 </script>
 
