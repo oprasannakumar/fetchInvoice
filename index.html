@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<title>Fetch Bill Products</title>
+<title>Invoice Viewer</title>
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
 <style>
@@ -11,67 +11,43 @@ body{
   background:#f5f5f5;
   padding:20px;
 }
-
 .container{
-  max-width:600px;
+  max-width:520px;
   margin:auto;
   background:#fff;
   padding:20px;
   border-radius:8px;
   box-shadow:0 0 10px rgba(0,0,0,.1);
 }
-
 label{
   font-weight:bold;
-  display:block;
   margin-top:12px;
+  display:block;
 }
-
-input, select, button{
+input, select{
   width:100%;
-  height:40px;
-  margin-top:6px;
-  padding:6px;
-  box-sizing:border-box;
+  height:42px;
+  margin-top:5px;
+  padding:8px;
+  font-size:15px;
 }
-
-button{
-  background:#007bff;
-  color:#fff;
-  border:none;
-  border-radius:4px;
-  cursor:pointer;
-}
-
-button:hover{
-  background:#0056b3;
-}
-
 table{
   width:100%;
   border-collapse:collapse;
-  margin-top:15px;
+  margin-top:18px;
 }
-
 th, td{
   border:1px solid #ddd;
   padding:8px;
   text-align:center;
 }
-
 th{
-  background:#f0f0f0;
+  background:#007bff;
+  color:#fff;
 }
-
 .total{
-  text-align:right;
   font-weight:bold;
-  margin-top:10px;
-}
-
-.error{
-  color:red;
-  margin-top:10px;
+  background:#f0f0f0;
 }
 </style>
 </head>
@@ -79,136 +55,96 @@ th{
 <body>
 
 <div class="container">
-  <h2>Fetch Products by Bill</h2>
+  <h3>Invoice Lookup</h3>
 
-  <!-- STEP 1 -->
   <label>Select Date</label>
-  <input type="date" id="billDate">
+  <input type="date" id="date" onchange="loadInvoices()">
 
-  <!-- STEP 2 -->
-  <label>Select Bill</label>
-  <select id="billSelect" disabled>
-    <option value="">Select bill</option>
+  <label>Select Invoice</label>
+  <select id="invoice" onchange="loadItems()">
+    <option value="">-- Select Invoice --</option>
   </select>
 
-  <!-- OUTPUT -->
-  <div id="billInfo"></div>
-  <div id="tableWrap"></div>
-  <div class="total" id="grandTotal"></div>
-  <div class="error" id="error"></div>
+  <table id="itemsTable" style="display:none">
+    <thead>
+      <tr>
+        <th>Item</th>
+        <th>Qty</th>
+        <th>Price</th>
+        <th>Total</th>
+      </tr>
+    </thead>
+    <tbody></tbody>
+  </table>
 </div>
 
 <script>
-const SCRIPT_URL =
-"https://script.google.com/macros/s/AKfycbxdOapAOwiv_742kv8--bWEF7BWFNV65Rh9MWG7kxVwnQIahcDthpfrKUvfwgDsxhlv/exec";
+const API_URL = "https://script.google.com/macros/s/AKfycbwu6tvrXKAmaZSnqcrb3myGAvW3CmPwnUUfa57M7eg7KOJzys2ZPZWx82AL0EbxhEAmFQ/exec";
 
-/* ? yyyy-mm-dd ? d/m/yyyy (MATCHES GOOGLE SHEETS) */
-function formatDate(v){
-  const [y, m, d] = v.split("-");
-  return `${parseInt(d)}/${parseInt(m)}/${y}`;
+// yyyy-mm-dd → d/M/yyyy
+function formatDate(input) {
+  const d = new Date(input);
+  return `${d.getDate()}/${d.getMonth()+1}/${d.getFullYear()}`;
 }
 
-/* STEP 2: FETCH BILLS BY DATE */
-billDate.onchange = async () => {
-  error.innerText = "";
-  billSelect.innerHTML = "<option value=''>Select bill</option>";
-  billSelect.disabled = true;
-  tableWrap.innerHTML = "";
-  billInfo.innerHTML = "";
-  grandTotal.innerText = "";
+function loadInvoices() {
+  const dateInput = document.getElementById("date").value;
+  const invoiceSelect = document.getElementById("invoice");
 
-  if(!billDate.value) return;
+  invoiceSelect.innerHTML = "<option>Loading...</option>";
+  if (!dateInput) return;
 
-  try{
-    const res = await fetch(
-      `${SCRIPT_URL}?date=${encodeURIComponent(formatDate(billDate.value))}`
-    );
-    const bills = await res.json();
-
-    if(!bills || !bills.length){
-      error.innerText = "No bills found for this date";
-      return;
-    }
-
-    bills.forEach(b => {
-      const opt = document.createElement("option");
-      opt.value = b.billNo;
-      opt.textContent = `${b.billNo}${b.shopName ? " ("+b.shopName+")" : ""}`;
-      billSelect.appendChild(opt);
+  fetch(`${API_URL}?action=getInvoices&date=${formatDate(dateInput)}`)
+    .then(res => res.json())
+    .then(data => {
+      invoiceSelect.innerHTML = `<option value="">-- Select Invoice --</option>`;
+      if (data.length === 0) {
+        invoiceSelect.innerHTML += `<option>No invoices found</option>`;
+      }
+      data.forEach(inv => {
+        invoiceSelect.innerHTML += `<option value="${inv}">${inv}</option>`;
+      });
     });
+}
 
-    billSelect.disabled = false;
+function loadItems() {
+  const invoiceNo = document.getElementById("invoice").value;
+  const table = document.getElementById("itemsTable");
+  const tbody = table.querySelector("tbody");
 
-  }catch(err){
-    error.innerText = "Failed to fetch bills";
+  if (!invoiceNo) {
+    table.style.display = "none";
+    return;
   }
-};
 
-/* STEP 3: FETCH PRODUCTS BY BILL NO */
-billSelect.onchange = async () => {
-  error.innerText = "";
-  tableWrap.innerHTML = "";
-  billInfo.innerHTML = "";
-  grandTotal.innerText = "";
+  fetch(`${API_URL}?action=getItems&invoiceNo=${invoiceNo}`)
+    .then(res => res.json())
+    .then(items => {
+      tbody.innerHTML = "";
+      let grandTotal = 0;
 
-  if(!billSelect.value) return;
+      items.forEach(i => {
+        grandTotal += i.total;
+        tbody.innerHTML += `
+          <tr>
+            <td>${i.item}</td>
+            <td>${i.qty}</td>
+            <td>${i.price}</td>
+            <td>${i.total}</td>
+          </tr>`;
+      });
 
-  try{
-    const res = await fetch(
-      `${SCRIPT_URL}?billNo=${encodeURIComponent(billSelect.value)}`
-    );
-    const data = await res.json();
-
-    if(!data || !data.items || !data.items.length){
-      error.innerText = "No products found for this bill";
-      return;
-    }
-
-    /* Bill Info */
-    billInfo.innerHTML = `
-      <p><b>Bill No:</b> ${data.billNo}</p>
-      <p><b>Date:</b> ${data.billDate}</p>
-      <p><b>Shop:</b> ${data.shopName || "-"}</p>
-    `;
-
-    /* Products Table */
-    let html = `
-      <table>
-        <tr>
-          <th>Item</th>
-          <th>Qty</th>
-          <th>Unit ₹</th>
-          <th>Total ₹</th>
-        </tr>
-    `;
-
-    let total = 0;
-
-    data.items.forEach(i => {
-      const line = i.qty * i.price;
-      total += line;
-      html += `
-        <tr>
-          <td>${i.name}</td>
-          <td>${i.qty}</td>
-          <td>${i.price}</td>
-          <td>${line.toFixed(2)}</td>
+      tbody.innerHTML += `
+        <tr class="total">
+          <td colspan="3">Grand Total</td>
+          <td>${grandTotal}</td>
         </tr>
       `;
+
+      table.style.display = "table";
     });
-
-    html += "</table>";
-
-    tableWrap.innerHTML = html;
-    grandTotal.innerText = "Grand Total: ₹ " + total.toFixed(2);
-
-  }catch(err){
-    error.innerText = "Unable to fetch bill items";
-  }
-};
+}
 </script>
 
 </body>
 </html>
-
-
