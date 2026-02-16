@@ -4,8 +4,8 @@
   "description": "Lookup, add, and manage invoices with real-time sync.",
   "start_url": "./index.html",
   "display": "standalone",
-  "background_color": "#ffffff",
-  "theme_color": "#ffffff",
+  "background_color": "#eef1f5",
+  "theme_color": "#eef1f5",
   "icons": [
     {
       "src": "icon.png",
